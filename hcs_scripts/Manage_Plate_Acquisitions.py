@@ -21,10 +21,17 @@
 
 Add or remove PlateAcquisition(s) in a given Plate.
 """
-from omero.util import script_utils
+
 from omero.gateway import BlitzGateway
-from omero.rtypes import *
-from omero.model import *
+
+from omero.model import PlateAcquisitionI
+from omero.model import PlateI
+
+from omero.rtypes import rlong
+from omero.rtypes import rstring
+
+from omero.sys import ParametersI
+
 import omero.scripts as scripts
 
 
@@ -95,7 +102,7 @@ def run():
                     "Linked new PlateAcquisition with ID %d to Plate with ID %d."
                         % (plateAcquisitionId, plateId))
             else:
-                params = omero.sys.ParametersI()
+                params = ParametersI()
                 params.addId(plateId)
 
                 queryString = """
