@@ -1,11 +1,6 @@
 OMERO User Scripts
 ==================
 
-Requirements
-------------
-
-* OMERO 4.4.x
-
 Installation
 ------------
 
@@ -35,8 +30,10 @@ Adding a script
     | **util_scripts**       | are periodically run to clean up or otherwise improve existing data or OMERO itself  |
 
 2. Place your script in that directory:
-  * If you have an existing script, copy it directly in, and remove [Example.py](Example.py)
-  * Otherwise, rename [Example.py](Example.py) and edit it in place.
+  * If you have an existing script, simply save it.
+  * Otherwise, copy [Example.txt](Example.txt) and edit it in place.
+
+3. Add the file to git, commit, and push.
 
 Testing your script
 -------------------
@@ -74,7 +71,7 @@ Glencoe Software scripts for OMERO
 4.4
 
 ###### Maximum version ######
-4.4
+5.0
 
 ###### Owner(s) ######
 Glencoe Software
