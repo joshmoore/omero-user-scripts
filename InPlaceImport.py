@@ -25,6 +25,7 @@ OMERO.script to allow importing-vi-symlink on the server-side
 
 import omero
 import omero.all
+import omero_ext.uuid as uuid  # see ticket:3774
 
 from omero.constants.namespaces import NSLOGFILE
 from omero.callbacks import CmdCallbackI
@@ -44,6 +45,7 @@ from omero.util.import_candidates import as_dictionary
 from omero.util.import_candidates import as_stdout
 from omero.rtypes import rbool
 from omero.rtypes import rstring
+from omero.rtypes import unwrap
 from omero_sys_ParametersI import ParametersI
 from omero_version import omero_version
 from path import path
@@ -68,7 +70,7 @@ class CRC32(object):
                 if not data:
                     break
                 chk.update(data)
-            return chk.digest()
+            return chk.hexdigest()
         finally:
             f.close()
 
@@ -104,7 +106,7 @@ class InPlaceImporter(object):
         self.category = client.getCategory()
         self.settings = ImportSettings()
         self.fs = FilesetI()
-        self.repo = self.lookup_managed_repository()
+        self.repo, self.root = self.lookup_managed_repository()
 
     def create_import(self):
         self.settings.doThumbnail = rbool(True)
@@ -141,11 +143,27 @@ class InPlaceImporter(object):
             if proxy is not None:
                 rv = ManagedRepositoryPrx.checkedCast(proxy)
                 if rv is not None:
-                    return rv
-        return None
+                    return rv, map.descriptions[i]
+        return None, None
 
-    def symlink_file(self, filename):
-        print file
+    def symlink_file(self, index, filename):
+        uploader = self.proc.getUploader(index)
+        orig_file = unwrap(uploader.getFileId())
+        orig_file = self.client.sf.getQueryService().get(
+            "OriginalFile", orig_file, {"omero.group": "-1"})
+        file_path = "/".join([self.root.path.val, self.root.name.val,
+                              orig_file.path.val, orig_file.name.val])
+        target_obj = path(file_path)
+        src_obj = path(filename)
+        test_text = str(uuid.uuid4())
+        uploader.write(test_text, 0, len(test_text))
+
+        # First we guarantee that we have the right file
+        # If so, we remove it and symlink
+        assert test_text == target_obj.text()
+        target_obj.remove()
+        src_obj.symlink(target_obj)
+        uploader.close()
 
     def run(self):
         self.proc = self.create_import()
@@ -156,7 +174,7 @@ class InPlaceImporter(object):
 
         for i, srcFile in enumerate(self.srcFiles):
             self.checksums.append(str(CRC32.read(srcFile)))
-            self.symlink_file(srcFile)
+            self.symlink_file(i, srcFile)
 
         try:
             self.handle = self.proc.verifyUpload(self.checksums)
@@ -185,6 +203,7 @@ class InPlaceImportCallbackI(CmdCallbackI):
 
     def __init__(self, inplace_importer):
         self.inplace_importer = inplace_importer
+        self.client = inplace_importer.client
         self.rsp = None
         CmdCallbackI.__init__(
             self,
@@ -208,7 +227,7 @@ class InPlaceImportCallbackI(CmdCallbackI):
             if fsId in annotationMap:
                 annotations = annotationMap.get(fsId)
                 if annotations:
-                    fa = annotations.get[0]
+                    fa = annotations[0]
                     ofId = fa.getFile().getId().getValue()
         except omero.ServerError:
             ofId = None
@@ -245,8 +264,7 @@ class InPlaceImportCallbackI(CmdCallbackI):
                 # Only respond once.
                 self.rsp = rsp
         else:
-            raise Exception("Unknown response: " + rsp)
-        self.onFinishedDone()
+            raise Exception("Unknown response: %s", rsp)
 
 
 if __name__ == "__main__":
