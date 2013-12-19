@@ -27,11 +27,9 @@ from omero.scripts import client as Client
 from omero.scripts import String
 from omero.scripts import Bool
 from omero.util.import_candidates import as_dictionary
+from omero.util.import_candidates import as_stdout
 from omero.rtypes import rstring
-
-import logging
-
-logger = logging.getLogger('InPlaceImport')
+from path import path
 
 
 def in_place_import(client, used_files):
@@ -55,11 +53,6 @@ if __name__ == "__main__":
             description=("If this is a dry run, no import will take place. "
                          "Instead a list of importable files will be returned.")),
 
-        Bool(
-            "Debug", grouping="3", default=False,
-            description=("If this is a dry run, no import will take place. "
-                         "Instead a list of importable files will be returned.")),
-
         version="5.0.0",
         authors=["Josh Moore", "OME Team"],
         institutions=["University of Dundee"],
@@ -72,16 +65,14 @@ if __name__ == "__main__":
             if client.getInput(key):
                 script_params[key] = client.getInput(key, unwrap=True)
 
-        if script_params["Debug"]:
-            logging.basicConfig(loglevel=logging.DEBUG)
-        else:
-            logging.basicConfig(loglevel=logging.INFO)
-
-        used_files = as_dictionary(script_params["Path"])
+        # Wrapping with path due to a bug in import_candidates.py
+        target_path = path(script_params["Path"])
 
         if script_params["Dry_Run"]:
-            client.setOutput("Message", rstring(used_files))
+            as_stdout(target_path)
+            client.setOutput("Message", rstring("Dry-run: ok"))
         else:
+            used_files = as_dictionary(path(script_params["Path"]))
             message = in_place_import(client, used_files)
             client.setOutput("Message", rstring(message))
 
